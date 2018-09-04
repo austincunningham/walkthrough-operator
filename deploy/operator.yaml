@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: walkthrough-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: walkthrough-operator
+  template:
+    metadata:
+      labels:
+        name: walkthrough-operator
+    spec:
+      containers:
+        - name: walkthrough-operator
+          image: quay.io/integreatly/walkthrough-operator:0.0.1
+          ports:
+          - containerPort: 60000
+            name: metrics
+          command:
+          - walkthrough-operator
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              value: "walkthrough-operator"

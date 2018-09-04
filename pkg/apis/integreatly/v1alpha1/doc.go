@@ -1,3 +1,3 @@
 // +k8s:deepcopy-gen=package
-// +groupName=integr8ly.aerogear.org
+// +groupName=integreatly.aerogear.org
 package v1alpha1

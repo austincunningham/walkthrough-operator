@@ -1,4 +1,4 @@
-apiVersion: "integr8ly.aerogear.org/v1alpha1"
+apiVersion: "integreatly.aerogear.org/v1alpha1"
 kind: "Walkthrough"
 metadata:
   name: "example"

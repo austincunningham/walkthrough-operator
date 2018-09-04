@@ -4,7 +4,7 @@ metadata:
   name: walkthrough-operator
 rules:
 - apiGroups:
-  - integr8ly.aerogear.org
+  - integreatly.aerogear.org
   resources:
   - "*"
   verbs:
