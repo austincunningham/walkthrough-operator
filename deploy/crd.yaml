@@ -1,0 +1,13 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: walkthroughs.integr8ly.aerogear.org
+spec:
+  group: integr8ly.aerogear.org
+  names:
+    kind: Walkthrough
+    listKind: WalkthroughList
+    plural: walkthroughs
+    singular: walkthrough
+  scope: Namespaced
+  version: v1alpha1
