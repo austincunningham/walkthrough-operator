@@ -27,8 +27,22 @@ type Walkthrough struct {
 }
 
 type WalkthroughSpec struct {
-	// Fill me
+	Namespace string   `json:"namespace"`
+	UserName  string   `json:"username"`
+	Services  []string `json:"services,omitempty"`
 }
+
 type WalkthroughStatus struct {
-	// Fill me
+	// marked as true when all work is done on it
+	Ready bool        `json:"ready"`
+	Phase StatusPhase `json:"phase"`
 }
+
+type StatusPhase string
+
+var (
+	NoPhase                 StatusPhase = ""
+	PhaseProvisionNamespace StatusPhase = "namespace"
+	PhaseProvisionServices  StatusPhase = "services"
+	PhaseUserRoleBindings   StatusPhase = "roles"
+)
