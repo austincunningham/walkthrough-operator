@@ -7,6 +7,8 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -65,13 +67,27 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 
 func (h *Handler) initialise(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthrough, error) {
 	wtCopy := wt.DeepCopy()
-	//ToDo Implement me
+	wtCopy.Status.Phase = v1alpha1.PhaseProvisionNamespace
 	return wtCopy, nil
 }
 
 func (h *Handler) provisionNamespace(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthrough, error) {
 	wtCopy := wt.DeepCopy()
-	//ToDo Implement me
+
+	nsSpec := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: wt.Spec.Namespace,
+		},
+	}
+
+	namespace, err := h.k8sClient.CoreV1().Namespaces().Create(nsSpec)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create wlakthrouh namespace")
+	}
+
+	logrus.Debugf("namespace %+v", namespace)
+
+	wtCopy.Status.Phase = v1alpha1.PhaseProvisionServices
 	return wtCopy, nil
 }
 
