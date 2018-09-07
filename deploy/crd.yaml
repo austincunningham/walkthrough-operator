@@ -11,3 +11,16 @@ spec:
     singular: walkthrough
   scope: Namespaced
   version: v1alpha1
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          properties:
+            namespace:
+              type: string
+            username:
+              type: string
+            services:
+              type: array
+              items:
+                type: string

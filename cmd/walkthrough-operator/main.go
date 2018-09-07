@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/integr8ly/walkthrough-operator/pkg/apis/integreatly/v1alpha1"
+	"github.com/operator-framework/operator-sdk/pkg/k8sclient"
 	"os"
 	"runtime"
 	"time"
@@ -13,6 +14,7 @@ import (
 	k8sutil "github.com/operator-framework/operator-sdk/pkg/util/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 
+	sc "github.com/kubernetes-incubator/service-catalog/pkg/client/clientset_generated/clientset"
 	"github.com/sirupsen/logrus"
 )
 
@@ -51,6 +53,13 @@ func main() {
 	resyncDuration := time.Second * time.Duration(cfg.ResyncPeriod)
 	logrus.Infof("Watching %s, %s, %s, %d", resource, kind, namespace, resyncDuration)
 	sdk.Watch(resource, kind, namespace, resyncDuration)
-	sdk.Handle(stub.NewHandler())
+
+	kubeCfg := k8sclient.GetKubeConfig()
+	svcClient, err := sc.NewForConfig(kubeCfg)
+	if err != nil {
+		logrus.Fatal("failed to set up service catalog client ", err)
+	}
+
+	sdk.Handle(stub.NewHandler(cfg, k8sclient.GetKubeClient(), svcClient))
 	sdk.Run(context.TODO())
 }
