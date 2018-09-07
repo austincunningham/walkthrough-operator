@@ -33,16 +33,19 @@ type WalkthroughSpec struct {
 
 type WalkthroughStatus struct {
 	// marked as true when all work is done on it
-	Ready     bool        `json:"ready"`
-	Phase     StatusPhase `json:"phase"`
-	Namespace string      `json:"namespace"`
+	Ready     bool              `json:"ready"`
+	Phase     StatusPhase       `json:"phase"`
+	Namespace string            `json:"namespace"`
+	Services  map[string]string `json:"services"`
 }
 
 type StatusPhase string
 
 var (
-	NoPhase                 StatusPhase = ""
-	PhaseProvisionNamespace StatusPhase = "namespace"
-	PhaseProvisionServices  StatusPhase = "services"
-	PhaseUserRoleBindings   StatusPhase = "roles"
+	NoPhase                  StatusPhase = ""
+	PhaseProvisionNamespace  StatusPhase = "namespace"
+	PhaseProvisionServices   StatusPhase = "services"
+	PhaseProvisionedServices StatusPhase = "provisioned"
+	PhaseUserRoleBindings    StatusPhase = "roles"
+	PhaseComplete            StatusPhase = "complete"
 )

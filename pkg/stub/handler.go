@@ -2,7 +2,9 @@ package stub
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/integr8ly/walkthrough-operator/pkg/apis/integreatly/v1alpha1"
+	"github.com/kubernetes-incubator/service-catalog/pkg/apis/servicecatalog/v1beta1"
 	scclientset "github.com/kubernetes-incubator/service-catalog/pkg/client/clientset_generated/clientset"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/pkg/errors"
@@ -10,6 +12,7 @@ import (
 	"k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -60,6 +63,12 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 				return errors.Wrap(err, "phase provision services failed")
 			}
 			return sdk.Update(wtState)
+		case v1alpha1.PhaseProvisionedServices:
+			wtState, err := h.provisionedServices(o)
+			if err != nil {
+				return errors.Wrap(err, "phase provision services failed")
+			}
+			return sdk.Update(wtState)
 		}
 		return nil
 	}
@@ -68,6 +77,8 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 
 func (h *Handler) initialise(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthrough, error) {
 	wtCopy := wt.DeepCopy()
+	wtCopy.Status.Ready = false
+	wtCopy.Status.Services = map[string]string{}
 	wtCopy.Status.Phase = v1alpha1.PhaseProvisionNamespace
 	return wtCopy, nil
 }
@@ -113,11 +124,86 @@ func (h *Handler) userRoleBindings(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthro
 
 func (h *Handler) provisionServices(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthrough, error) {
 	wtCopy := wt.DeepCopy()
-	//ToDo Implement me
+
+	requiredServices := wt.Spec.Services
+	logrus.Debugf("provision services: required=%v", requiredServices)
+	csc, err := h.serviceCatalogClient.Servicecatalog().ClusterServiceClasses().List(metav1.ListOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get service classes")
+	}
+
+	serviceClassMap := map[string]v1beta1.ClusterServiceClass{}
+	for i, _ := range requiredServices {
+		for i2, _ := range csc.Items {
+			if csc.Items[i2].Spec.ExternalName == requiredServices[i] {
+				serviceClassMap[requiredServices[i]] = csc.Items[i2]
+			}
+		}
+	}
+
+	if len(serviceClassMap) != len(wt.Spec.Services) {
+		return nil, errors.Errorf("Unable to get all service classes for required services: %v", requiredServices)
+	}
+
+	//ToDO This is not currently used, but we know we will need it for enmaase
+	decodedParams := map[string]string{}
+	parameters, err := json.Marshal(decodedParams)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal decoded parameters")
+	}
+	//
+
+	for serviceName, serviceClass := range serviceClassMap {
+		logrus.Debugf("required services, servicename: %s, serviceClass: %+v", serviceName, serviceClass.Spec.ExternalID)
+		if _, ok := wtCopy.Status.Services[serviceName]; !ok {
+			logrus.Debugf("creating service %s", serviceName)
+			si := h.newServiceInstance(wt.Status.Namespace, parameters, serviceClass)
+			serviceInstance, err := h.serviceCatalogClient.ServicecatalogV1beta1().ServiceInstances(wt.Status.Namespace).Create(&si)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to create service instance for %s", serviceName)
+			}
+			wtCopy.Status.Services[serviceName] = serviceInstance.GetName()
+			logrus.Infof("created service: %s, %s ", serviceName, serviceInstance.GetName())
+		}
+	}
+
+	wtCopy.Status.Phase = v1alpha1.PhaseProvisionedServices
 	return wtCopy, nil
 }
 
-func newRoleBinding(username, namsepace, roleName string) *rbacv1.RoleBinding {
+func (h *Handler) provisionedServices(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthrough, error) {
+	wtCopy := wt.DeepCopy()
+	allServicesReady := true
+
+	for _, svcInstName := range wtCopy.Status.Services {
+		si, err := h.serviceCatalogClient.ServicecatalogV1beta1().ServiceInstances(wtCopy.Status.Namespace).Get(svcInstName, metav1.GetOptions{})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get service instance %s", svcInstName)
+		}
+
+		serviceReady := false
+		for _, c := range si.Status.Conditions {
+			if c.Type == v1beta1.ServiceInstanceConditionReady && c.Status == v1beta1.ConditionTrue {
+				serviceReady = true
+				break
+			}
+		}
+
+		if !serviceReady {
+			allServicesReady = false
+		}
+		logrus.Debugf("service %s, ready: %v", svcInstName, serviceReady)
+	}
+
+	if allServicesReady {
+		logrus.Debug("All services ready!!!")
+		wtCopy.Status.Ready = true
+		wtCopy.Status.Phase = v1alpha1.PhaseComplete
+	}
+	return wtCopy, nil
+}
+
+func newRoleBinding(username, namespace, roleName string) *rbacv1.RoleBinding {
 	labels := map[string]string{
 		"aerogear.org/walkthrough-operator": "true",
 	}
@@ -128,7 +214,7 @@ func newRoleBinding(username, namsepace, roleName string) *rbacv1.RoleBinding {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: roleName + "-",
-			Namespace:    namsepace,
+			Namespace:    namespace,
 			Labels:       labels,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -142,6 +228,28 @@ func newRoleBinding(username, namsepace, roleName string) *rbacv1.RoleBinding {
 				Name:     username,
 				APIGroup: "rbac.authorization.k8s.io",
 			},
+		},
+	}
+}
+
+func (h *Handler) newServiceInstance(namespace string, parameters []byte, sc v1beta1.ClusterServiceClass) v1beta1.ServiceInstance {
+	return v1beta1.ServiceInstance{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "servicecatalog.k8s.io/v1beta1",
+			Kind:       "ServiceInstance",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:    namespace,
+			GenerateName: sc.Spec.ExternalName + "-",
+		},
+		Spec: v1beta1.ServiceInstanceSpec{
+			PlanReference: v1beta1.PlanReference{
+				ClusterServiceClassExternalName: sc.Spec.ExternalName,
+			},
+			ClusterServiceClassRef: &v1beta1.ClusterObjectReference{
+				Name: sc.Name,
+			},
+			Parameters: &runtime.RawExtension{Raw: parameters},
 		},
 	}
 }

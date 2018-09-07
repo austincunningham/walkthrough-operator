@@ -7,4 +7,6 @@ spec:
   username: developer
   #A list of services required by the walkthrough
   services:
+   - che
+   - launcher
    - fuse
