@@ -254,8 +254,7 @@
   version = "1.0.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:adf7b7b757cb589259d092cb78a5ef7e9db55ab88be5a528523d9ff6e17e8471"
+  digest = "1:13c65466cd36dc25b8af03a7199879c304629545f19134425125fdef11b334f7"
   name = "github.com/operator-framework/operator-sdk"
   packages = [
     "pkg/k8sclient",
@@ -265,7 +264,8 @@
     "version",
   ]
   pruneopts = ""
-  revision = "0f60da86a138f7e79f275d539c18615bc2727014"
+  revision = "cb89692cdd145f084798749c16baaf44a6e62cac"
+  version = "v0.0.6"
 
 [[projects]]
   branch = "master"
@@ -645,6 +645,7 @@
     "github.com/operator-framework/operator-sdk/version",
     "github.com/pkg/errors",
     "github.com/sirupsen/logrus",
+    "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
