@@ -75,17 +75,22 @@ func (h *Handler) initialise(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthrough, e
 func (h *Handler) provisionNamespace(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthrough, error) {
 	wtCopy := wt.DeepCopy()
 
+	labels := map[string]string{
+		"aerogear.org/walkthrough-operator": "true",
+	}
 	nsSpec := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: wt.Spec.Namespace,
+			Name:   wt.Spec.UserName + "-walkthroughs",
+			Labels: labels,
 		},
 	}
 
-	_, err := h.k8sClient.CoreV1().Namespaces().Create(nsSpec)
+	namespace, err := h.k8sClient.CoreV1().Namespaces().Create(nsSpec)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create walkthrough namespace")
 	}
 
+	wtCopy.Status.Namespace = namespace.Name
 	wtCopy.Status.Phase = v1alpha1.PhaseUserRoleBindings
 	return wtCopy, nil
 }
@@ -93,10 +98,10 @@ func (h *Handler) provisionNamespace(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkth
 func (h *Handler) userRoleBindings(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthrough, error) {
 	wtCopy := wt.DeepCopy()
 
-	userRoles := []string{"view", "edit"}
+	userRoles := []string{"edit"}
 
 	for _, role := range userRoles {
-		err := sdk.Create(newRoleBinding(wt.Spec.UserName, wt.Spec.Namespace, role))
+		err := sdk.Create(newRoleBinding(wt.Spec.UserName, wt.Status.Namespace, role))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create user %s role binding", role)
 		}
@@ -113,6 +118,9 @@ func (h *Handler) provisionServices(wt *v1alpha1.Walkthrough) (*v1alpha1.Walkthr
 }
 
 func newRoleBinding(username, namsepace, roleName string) *rbacv1.RoleBinding {
+	labels := map[string]string{
+		"aerogear.org/walkthrough-operator": "true",
+	}
 	return &rbacv1.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RoleBinding",
@@ -121,6 +129,7 @@ func newRoleBinding(username, namsepace, roleName string) *rbacv1.RoleBinding {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: roleName + "-",
 			Namespace:    namsepace,
+			Labels:       labels,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",

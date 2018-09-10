@@ -16,8 +16,6 @@ spec:
       properties:
         spec:
           properties:
-            namespace:
-              type: string
             username:
               type: string
             services:
