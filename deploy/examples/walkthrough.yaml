@@ -3,8 +3,6 @@ kind: "Walkthrough"
 metadata:
   name: "example"
 spec:
-  #The target namespace where the services will be provisioned
-  namespace: example
   #The username of the user who initiated the walkthough from the launcher app
   username: developer
   #A list of services required by the walkthrough
